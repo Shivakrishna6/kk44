@@ -1,0 +1,46 @@
+name: Add Metadata
+
+on:
+  workflow_dispatch
+
+jobs:
+  metadata:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+      
+      - name: Install packages
+        run: |
+          pip install --upgrade pip
+          pip install tensorflow tflite-support -q
+      
+      - name: Process model
+        run: |
+          python3 << 'SCRIPT'
+          from tflite_support import metadata_writer
+          try:
+              w = metadata_writer.MetadataWriter("model_fine_tuned.tflite")
+              with open("labels_fine_tuned.txt") as f:
+                  labels = [l.strip() for l in f]
+              w.add_general_info("Classifier", "Classification model")
+              w.add_image_input((127.5,), (127.5,))
+              w.add_classification_output(labels)
+              w.populate()
+              w.write("model_with_metadata.tflite")
+              print("SUCCESS")
+          except Exception as e:
+              print(f"ERROR: {e}")
+              exit(1)
+          SCRIPT
+      
+      - name: Upload
+        run: |
+          git config user.email "bot@github.com"
+          git config user.name "bot"
+          git add model_with_metadata.tflite
+          git commit -m "metadata model"
+          git push
